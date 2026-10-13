@@ -1,0 +1,690 @@
+asyncapi: 3.0.0
+ 
+info:
+  title: IRI Day-2 Transaction Confirmation Events
+  version: 1.0.0_rc.1
+  description: |
+    Standardized event specification for Financial Transaction Day 2
+    Confirmation notifications. This specification defines how
+    notifications are published through  Advanced Event Mesh and
+    references transaction-specific confirmation payloads maintained
+    within individual Financial Transaction API specifications.
+
+    Processing is performed asynchronously after the request is accepted. Day-2 represents the event published 
+    once the policy administration system finishes processing, a
+    confirmation event is published to  Advanced Event Mesh . The original `requestId` and `correlationId` are carried on the event so the firm can correlate the notification with the originating request.
+ 
+ 
+    Message types carried on this channel:
+      * Day2WithdrawalConfirmationEvent         - one-time partial withdrawal (incl. RMD), full surrender
+      * Day2SystematicProgramConfirmationEvent  - systematic withdrawal / systematic RMD (setup, update, cancel)
+      * Day2ArrangementConfirmationEvent        - dollar cost average (setup, update, cancel), auto rebalance (setup, update, cancel), index performance lock (setup, update, cancel), systematic investment (setup, update, cancel), allocation instructions (setup, update, cancel)
+      * Day2FundTransferConfirmationEvent       - fund transfer (submit)
+ 
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+  tags:
+    - name: day2
+      description: Asynchronous confirmation events for IRI financial transaction APIs
+
+x-day1-specs:
+  description: |
+    Day-1 Financial Transaction API specifications that publish
+    Day-2 confirmation events through this AsyncAPI.
+
+    Specifications are published and maintained at:
+
+      https://specs.dfa.irionline.org/specs/
+
+    Supported transaction families:
+      - One-Time Withdrawal
+      - Systematic Program
+      - Dollar Cost Average
+      - Auto Rebalance
+      - Index Performance Lock
+      - Systematic Investment
+      - Allocation Instructions
+      - Fund Transfer
+ 
+defaultContentType: application/json
+ 
+servers:
+  eventMesh:
+    host: '{host}'
+    protocol: amqp
+    description: >
+      Advanced Event Mesh used for publishing Financial Transaction Day 2 Confirmation.
+ 
+channels:
+  day2FinancialTransactionConfirmations:
+    address: '{root}/ift/v1/{eventType}/{status}/{transactionType}/{firm}'
+    title: Day-2 financial transaction confirmations
+    summary: >
+      Every Day-2 confirmation event for every in-scope financial transaction family.
+    description: |
+      Topic levels, left to right:
+ 
+        {root}            environment prefix
+        ift               in-force  transactions namespace
+        v1                contract major version
+        {eventType}       DAY2_CONFIRM for all Financial Transaction APIs except OTW [OTW uses legacy value day2confirm]
+        {status}          SUCCESS | SUCCESS_WITH_INFO | FAILURE
+        {transactionType} the specific transaction that completed
+        {firm}            associatedFirmId of the submitting firm
+ 
+    servers:
+      - $ref: '#/servers/eventMesh'
+    parameters:
+      root:
+        $ref: '#/components/parameters/root'
+      eventType:
+        $ref: '#/components/parameters/eventType'
+      status:
+        $ref: '#/components/parameters/status'
+      transactionType:
+        $ref: '#/components/parameters/transactionType'
+      firm:
+        $ref: '#/components/parameters/firm'
+    messages:
+      Day2WithdrawalConfirmation:
+        $ref: '#/components/messages/Day2WithdrawalConfirmation'
+      Day2SystematicProgramConfirmation:
+        $ref: '#/components/messages/Day2SystematicProgramConfirmation'
+      Day2DcaConfirmation:
+        $ref: '#/components/messages/Day2DcaConfirmation'
+      Day2AutoRebalanceConfirmation:
+        $ref: '#/components/messages/Day2AutoRebalanceConfirmation'
+      Day2FundTransferConfirmation:
+        $ref: '#/components/messages/Day2FundTransferConfirmation'
+      Day2IndexPerformanceLockConfirmation:
+        $ref: '#/components/messages/Day2IndexPerformanceLockConfirmation'
+      Day2SystematicInvestmentConfirmation:
+        $ref: '#/components/messages/Day2SystematicInvestmentConfirmation'
+      Day2AllocationInstructionConfirmation:
+        $ref: '#/components/messages/Day2AllocationInstructionConfirmation'
+ 
+operations:
+  publishDay2Confirmation:
+    action: send
+    title: Publish a Day-2 transaction confirmation
+    summary: >
+      Published after a Financial Transaction request has completed processing.
+    description: |
+      A Day 2 Confirmation notification is published once processing of a Financial Transaction request has completed.
+      The notification contains the original requestId and correlationId allowing consumers to correlate the event with the originating request. Consumers should use eventId for idempotency and duplicate detection.
+ 
+    channel:
+      $ref: '#/channels/day2FinancialTransactionConfirmations'
+ 
+    messages:
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2WithdrawalConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2SystematicProgramConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2DcaConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2AutoRebalanceConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2FundTransferConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2IndexPerformanceLockConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2SystematicInvestmentConfirmation'
+      - $ref: '#/channels/day2FinancialTransactionConfirmations/messages/Day2AllocationInstructionConfirmation'
+ 
+components:
+ 
+  # ---------------------------------------------------------------------------
+  # Channel parameters
+  # ---------------------------------------------------------------------------
+  parameters:
+    root:
+      description: >
+        Environment topic prefix.
+    eventType:
+      description: >
+        Identifies the type of Day-2 confirmation event published to the event mesh. 
+        For One Time Withdrawal it should be day2confirm.
+        Note:The One-Time Withdrawal API publishes 'day2confirm' while later Financial Transaction APIs publish'DAY2_CONFIRM'. Both values are supported for backward compatibility with the originating transaction-specific specifications.
+      location: $message.payload#/eventType
+      enum:
+        - DAY2_CONFIRM
+        - day2confirm
+    status:
+      description: Final processing outcome, repeated from the payload.
+      location: $message.payload#/status
+      enum:
+        - SUCCESS
+        - SUCCESS_WITH_INFO
+        - FAILURE
+    transactionType:
+      description: >
+        The specific transaction that completed processing. This is the
+        discriminator across all message types on this channel.
+      location: $message.payload#/transactionType
+      enum:
+        - one-time-partials
+        - full-surrenders
+        - SUBMIT_SYSTEMATIC_PROGRAM
+        - UPDATE_SYSTEMATIC_PROGRAM
+        - CANCEL_SYSTEMATIC_PROGRAM
+        - FUND_TRANSFERS
+        - SUBMIT_DOLLAR_COST_AVERAGE
+        - UPDATE_DOLLAR_COST_AVERAGE
+        - CANCEL_DOLLAR_COST_AVERAGE
+        - SUBMIT_AUTO_REBALANCE
+        - UPDATE_AUTO_REBALANCE
+        - CANCEL_AUTO_REBALANCE
+        - SUBMIT_INDEX_PERFORMANCE_LOCK
+        - UPDATE_INDEX_PERFORMANCE_LOCK
+        - CANCEL_INDEX_PERFORMANCE_LOCK
+        - SUBMIT_SYSTEMATIC_INVESTMENT
+        - UPDATE_SYSTEMATIC_INVESTMENT
+        - CANCEL_SYSTEMATIC_INVESTMENT
+        - SUBMIT_ALLOCATION_INSTRUCTIONS
+        - UPDATE_ALLOCATION_INSTRUCTIONS
+        - CANCEL_ALLOCATION_INSTRUCTIONS
+
+    firm:
+      description: >
+        Firm identifier associated with the transaction, used as the final
+        topic level so a firm can subscribe to its own traffic only.
+      location: $message.payload#/associatedFirmId
+ 
+  # ---------------------------------------------------------------------------
+  # Messages
+  # ---------------------------------------------------------------------------
+  messages:
+ 
+    Day2WithdrawalConfirmation:
+      name: Day2WithdrawalConfirmation
+      title: One-time withdrawal confirmation
+      summary: >
+        Outcome of a one-time partial withdrawal (including RMD) or a full
+        surrender.
+      contentType: application/json
+      tags:
+        - name: oneTimeWithdrawal
+      x-day1-source:
+        day2Schema: Day2WithdrawalConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2WithdrawalConfirmation'
+      examples:
+        - name: WithdrawalSuccess
+          summary: Partial withdrawal completed
+          payload:
+            eventType: day2confirm
+            eventId: 9f1c2b4e-6d3a-4f57-8b21-0c7a5e9d1234
+            eventTimestamp: '2026-06-15T14:32:10Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-OTW-20260615-000411
+            correlationId: CORR-8871-A
+            policyNumber: '0001234567'
+            transactionType: one-time-partials
+            transactionSubType: specified-withdrawal
+            status: SUCCESS
+            effectiveDate: '2026-06-15'
+            npn: '18884422'
+            nsccParticipantId: NSCC998877
+            transExeDate: '2026-06-15'
+            transExeTime: '14:31:58'
+ 
+    Day2SystematicProgramConfirmation:
+      name: Day2SystematicProgramConfirmation
+      title: Systematic program confirmation
+      summary: >
+        Outcome of a systematic withdrawal or systematic RMD arrangement
+        setup, update, or cancellation.
+      contentType: application/json
+      tags:
+        - name: systematicProgram
+      x-day1-source:
+        day2Schema: Day2SystematicProgramConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2SystematicProgramConfirmation'
+      examples:
+        - name: SystematicSetupSuccess
+          summary: Systematic withdrawal arrangement established
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: 4d5e6f70-1a2b-4c3d-8e9f-0a1b2c3d4e5f
+            eventTimestamp: '2026-06-16T09:15:00Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-SYS-20260616-000101
+            correlationId: CORR-7001-C
+            policyNumber: '0001234567'
+            transactionType: SUBMIT_SYSTEMATIC_PROGRAM
+            arrangementType: WITHDRAWAL
+            externalArrangementId: EXT-ARR-7890
+            status: SUCCESS
+            effectiveDate: '2026-07-01'
+            npn: '18884422'
+            nsccParticipantId: NSCC001
+            transExeDate: '2026-07-01'
+            transExeTime: '09:14:47'
+ 
+    Day2DcaConfirmation:
+      name: Day2DcaConfirmation
+      title: Dollar cost average confirmation
+      summary: >
+        Outcome of a dollar cost average arrangement setup, update, or
+        cancellation.
+      contentType: application/json
+      tags:
+        - name: dca
+        - name: arrangement
+      x-day1-source:
+        day2Schema: Day2ArrangementConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2ArrangementConfirmation'
+      examples:
+        - name: DcaSetupSuccess
+          summary: DCA arrangement established
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: c3a1f0d2-9b84-4e67-a501-2d3e4f5a6b7c
+            eventTimestamp: '2026-06-15T13:05:31Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-DCA-20260615-000077
+            correlationId: CORR-5501-E
+            policyNumber: '0001234567'
+            transactionType: SUBMIT_DOLLAR_COST_AVERAGE
+            status: SUCCESS
+            effectiveDate: '2026-06-15'
+            npn: '18884422'
+            nsccParticipantId: NSCC998877
+            transExeDate: '2026-06-15'
+            transExeTime: '13:05:18'
+ 
+    Day2AutoRebalanceConfirmation:
+      name: Day2AutoRebalanceConfirmation
+      title: Auto rebalance confirmation
+      summary: >
+        Outcome of an auto rebalance arrangement setup, update, or
+        cancellation.
+      contentType: application/json
+      tags:
+        - name: autoRebalance
+        - name: arrangement
+      x-day1-source:
+        day2Schema: Day2ArrangementConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2ArrangementConfirmation'
+      examples:
+        - name: ArSetupSuccess
+          summary: Auto rebalance arrangement established
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: b1c2d3e4-f5a6-4708-9123-45678abcdef0
+            eventTimestamp: '2026-06-15T12:10:09Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-AR-20260615-000033
+            correlationId: CORR-3301-G
+            policyNumber: '0001234567'
+            transactionType: SUBMIT_AUTO_REBALANCE
+            status: SUCCESS
+            effectiveDate: '2026-06-15'
+            npn: '18884422'
+            nsccParticipantId: NSCC998877
+            transExeDate: '2026-06-15'
+            transExeTime: '12:09:55'
+    Day2IndexPerformanceLockConfirmation:
+      name: Day2IndexPerformanceLockConfirmation
+      title: Index performance lock confirmation
+      summary: >
+        Outcome of an index performance lock arrangement setup, update, or
+        cancellation.
+      contentType: application/json
+      tags:
+        - name: indexPerformanceLock
+        - name: arrangement
+      x-day1-source:
+        day2Schema: Day2ArrangementConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2ArrangementConfirmation'
+      examples:
+        - name: IplSetupSuccess
+          summary: Index performance lock arrangement established
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: d5a1f0d2-9b84-4e67-a501-2d3e4f5a6b7c
+            eventTimestamp: '2026-06-15T13:05:31Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-IPL-20260615-000077
+            correlationId: CORR-7701-E
+            policyNumber: '0001234567'
+            transactionType: SUBMIT_INDEX_PERFORMANCE_LOCK
+            status: SUCCESS
+            effectiveDate: '2026-06-15'
+            npn: '18884422'
+            nsccParticipantId: NSCC998877
+            transExeDate: '2026-06-15'
+            transExeTime: '13:05:18'
+
+    Day2SystematicInvestmentConfirmation:
+      name: Day2SystematicInvestmentConfirmation
+      title: Systematic investment confirmation
+      summary: >
+        Outcome of a systematic investment arrangement setup, update, or
+        cancellation.
+      contentType: application/json
+      tags:
+        - name: systematicInvestment
+        - name: arrangement
+      x-day1-source:
+        day2Schema: Day2ArrangementConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2ArrangementConfirmation'
+      examples:
+        - name: SiSetupSuccess
+          summary: Systematic investment arrangement established
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: e6a1f0d2-9b84-4e67-a501-2d3e4f5a6b7c
+            eventTimestamp: '2026-06-15T13:05:31Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-SI-20260615-000077
+            correlationId: CORR-8801-E
+            policyNumber: '0001234567'
+            transactionType: SUBMIT_SYSTEMATIC_INVESTMENT
+            status: SUCCESS
+            effectiveDate: '2026-06-15'
+            npn: '18884422'
+            nsccParticipantId: NSCC998877
+            transExeDate: '2026-06-15'
+            transExeTime: '13:05:18'
+
+    Day2AllocationInstructionConfirmation:
+      name: Day2AllocationInstructionConfirmation
+      title: Allocation instruction confirmation
+      summary: >
+        Outcome of an allocation instruction arrangement setup, update, or
+        cancellation.
+      contentType: application/json
+      tags:
+        - name: allocationInstruction
+        - name: arrangement
+      x-day1-source:
+        day2Schema: Day2ArrangementConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2ArrangementConfirmation'
+      examples:
+        - name: AiSetupSuccess
+          summary: Allocation instruction arrangement established
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: f7a1f0d2-9b84-4e67-a501-2d3e4f5a6b7c
+            eventTimestamp: '2026-06-15T13:05:31Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-AI-20260615-000077
+            correlationId: CORR-9901-E
+            policyNumber: '0001234567'
+            transactionType: SUBMIT_ALLOCATION_INSTRUCTIONS
+            status: SUCCESS
+            effectiveDate: '2026-06-15'
+            npn: '18884422'
+            nsccParticipantId: NSCC998877
+            transExeDate: '2026-06-15'
+            transExeTime: '13:05:18'
+        
+    Day2FundTransferConfirmation:
+      name: Day2FundTransferConfirmation
+      title: Fund transfer confirmation
+      summary: >
+        Outcome of a fund-to-fund or segment-based value transfer.
+      contentType: application/json
+      tags:
+        - name: fundTransfer
+      x-day1-source:
+        day2Schema: Day2FundTransferConfirmationEvent
+      payload:
+        $ref: '#/components/schemas/Day2FundTransferConfirmation'
+      examples:
+        - name: FundTransferSuccess
+          summary: Specified-funds transfer completed
+          payload:
+            eventType: DAY2_CONFIRM
+            eventId: a7b3c9d1-2e45-4f68-b07a-3c1d5e2f9088
+            eventTimestamp: '2026-03-15T14:22:07Z'
+            associatedFirmId: FIRM123
+            requestId: REQ-FT-20260315-000211
+            correlationId: CORR-6101-J
+            policyNumber: '0001234567'
+            transactionType: FUND_TRANSFERS
+            status: SUCCESS
+            effectiveDate: '2026-03-15'
+            npn: '18884422'
+            nsccParticipantId: '12345'
+            transExeDate: '2026-03-15'
+            transExeTime: '14:21:54'
+ 
+  # ---------------------------------------------------------------------------
+  # Schemas
+  # ---------------------------------------------------------------------------
+  schemas:
+ 
+    Day2ConfirmationEnvelope:
+      allOf:
+        - type: object
+          title: Day-2 confirmation envelope
+          description: >
+            Fields common to every Day-2 confirmation event, regardless of
+            transaction family. Each family schema extends this envelope with its
+            own distinguishing fields.
+          required:
+            - eventType
+            - eventId
+            - eventTimestamp
+            - associatedFirmId
+            - requestId
+            - correlationId
+            - policyNumber
+            - status
+            - nsccParticipantId
+            - npn
+            - transExeDate
+            - transExeTime
+          properties:
+            eventType:
+              type: string
+              description: >
+                Identifies the type of Day-2 event published to the event mesh.
+                Also the fourth topic level.
+                For One Time Withdrawal it should be day2confirm.
+              enum:
+                - DAY2_CONFIRM
+                - day2confirm
+            eventId:
+              type: string
+              format: uuid
+              maxLength: 36
+              description: >
+                Globally unique identifier for this event. Consuming systems use it
+                for idempotent processing and duplicate detection.
+            eventTimestamp:
+              type: string
+              format: date-time
+              description: Date and time the event was published to the event mesh.
+            associatedFirmId:
+              type: string
+              maxLength: 65
+              description: >
+                Firm identifier associated with the transaction.
+            requestId:
+              type: string
+              description: >
+                Identifier assigned when the Day-1 request was submitted. Used to
+                correlate this confirmation with the original Day-1 request.
+            correlationId:
+              type: string
+              maxLength: 100
+              description: >
+                Correlation identifier supplied by the firm on the original request
+                and propagated here for end-to-end traceability.
+            policyNumber:
+              type: string
+              minLength: 1
+              maxLength: 30
+              description: Policy number the transaction was executed against.
+            status:
+              type: string
+              description: >
+                Final processing outcome of the request.
+              enum:
+                - SUCCESS
+                - SUCCESS_WITH_INFO
+                - FAILURE
+            message:
+              type: string
+              description: >
+                Human-readable explanation of the outcome. Populated when the
+                transaction fails or when additional explanation is required.
+            effectiveDate:
+              type: string
+              format: date
+              description: >
+                When the transaction was originally scheduled or expected to happen; can be a non-business day.
+            npn:
+              type: string
+              maxLength: 100
+              description: National Producer Number associated with the transaction.
+            nsccParticipantId:
+              type: string
+              maxLength: 100
+              description: >
+                Unique identifier assigned to the submitting firm or participant
+                within the NSCC network.
+            transExeDate:
+              type: string
+              format: date
+              description: >
+                Date on which the Day-2 confirmation was produced by the
+                transaction processing system.
+            transExeTime:
+              type: string
+              pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'
+              description: >
+                Time at which the Day-2 confirmation was produced by the
+                transaction processing system.
+
+    ArrangementIdentifiers:
+      type: object
+      title: Arrangement identifiers
+      description: >
+        Identifier pair carried by every arrangement-based family.
+      required:
+        - externalArrangementId
+      properties:
+        externalArrangementId:
+          type: string
+          maxLength: 100
+          description: >
+            Arrangement identifier supplied by the external system.
+ 
+    Day2WithdrawalConfirmation:
+      title: Day-2 one-time withdrawal confirmation
+      description: >
+        Confirmation for a one-time partial withdrawal (including RMD) or a
+        full surrender. Distinguished from the other families by
+        transactionSubType.
+      allOf:
+        - $ref: '#/components/schemas/Day2ConfirmationEnvelope'
+        - type: object
+          required:
+            - transactionType
+          properties:
+            transactionType:
+              type: string
+              description: >
+                High-level classification of the transaction that completed processing.
+              enum:
+                - one-time-partials
+                - full-surrenders
+            transactionSubType:
+              type: string
+              description: >
+                Optional subtype of the transaction, when applicable (for example, RMD or interest-only).
+                For full-surrenders: transactionSubType is not applicable.
+              enum:
+                - specified-withdrawal
+                - surrender-free
+                - rider-free
+                - interest-only
+                - rmd
+ 
+    Day2SystematicProgramConfirmation:
+      title: Day-2 systematic program confirmation
+      description: >
+        Confirmation for a systematic withdrawal or systematic RMD arrangement.
+        Distinguished from the other arrangement families by `arrangementType`.
+      allOf:
+        - $ref: '#/components/schemas/Day2ConfirmationEnvelope'
+        - $ref: '#/components/schemas/ArrangementIdentifiers'
+        - type: object
+          required:
+            - transactionType
+            - arrangementType
+          properties:
+            transactionType:
+              type: string
+              description: >
+                High-level classification of the transaction that completed processing.For example, SUBMIT_* indicates creation of a new SystematicProgram , UPDATE_* indicates modification of an existing SystematicProgram,CANCEL_* indicates cancellation of an existing SystematicProgram
+              enum:
+                - SUBMIT_SYSTEMATIC_PROGRAM
+                - UPDATE_SYSTEMATIC_PROGRAM
+                - CANCEL_SYSTEMATIC_PROGRAM
+            arrangementType:
+              type: string
+              description: Type of arrangement established by the transaction.
+              enum:
+                - PAYMENT
+                - WITHDRAWAL
+                - LOAN_REPAYMENT
+                - PAYOUT
+                - REQUIRED_MINIMUM_DISTRIBUTION
+ 
+    Day2ArrangementConfirmation:
+      title: Day-2 arrangement confirmation
+      description: >
+        Common confirmation schema for arrangement-based transactions. transactionType identifies the specific arrangement transaction represented by the confirmation
+      allOf:
+        - $ref: '#/components/schemas/Day2ConfirmationEnvelope'
+        - type: object
+          required:
+            - transactionType
+          properties:
+            transactionType:
+              type: string
+              description: >
+                SUBMIT_* creates a new arrangement,UPDATE_* modifies an existing arrangement,CANCEL_* cancels an existing arrangement.
+              enum:
+                - SUBMIT_DOLLAR_COST_AVERAGE
+                - UPDATE_DOLLAR_COST_AVERAGE
+                - CANCEL_DOLLAR_COST_AVERAGE
+                - SUBMIT_AUTO_REBALANCE
+                - UPDATE_AUTO_REBALANCE
+                - CANCEL_AUTO_REBALANCE
+                - SUBMIT_INDEX_PERFORMANCE_LOCK
+                - UPDATE_INDEX_PERFORMANCE_LOCK
+                - CANCEL_INDEX_PERFORMANCE_LOCK
+                - SUBMIT_SYSTEMATIC_INVESTMENT
+                - UPDATE_SYSTEMATIC_INVESTMENT
+                - CANCEL_SYSTEMATIC_INVESTMENT
+                - SUBMIT_ALLOCATION_INSTRUCTIONS
+                - UPDATE_ALLOCATION_INSTRUCTIONS
+                - CANCEL_ALLOCATION_INSTRUCTIONS
+
+    Day2FundTransferConfirmation:
+      title: Day-2 fund transfer confirmation
+      description: >
+        Confirmation for a fund-to-fund or segment-based value transfer. 
+      allOf:
+        - $ref: '#/components/schemas/Day2ConfirmationEnvelope'
+        - type: object
+          required:
+            - transactionType
+          properties:
+            transactionType:
+              type: string
+              description: >
+                The fund transfer transaction that completed processing. A
+                single value; the Day-1 API exposes one submission endpoint for
+                all transfer shapes.
+              enum:
+                - FUND_TRANSFERS
