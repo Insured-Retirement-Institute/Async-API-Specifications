@@ -197,9 +197,6 @@ Provides Day‑2 confirmation notifications for:
 ### Supported Event Types
 
 - DAY2_CONFIRM
-- day2confirm
-
-**Note:** One-Time Withdrawal uses the legacy value `day2confirm` while later Financial Transaction APIs use `DAY2_CONFIRM`.
 
 ### Supported Status Values
 
@@ -209,8 +206,8 @@ Provides Day‑2 confirmation notifications for:
 
 ### Supported Transaction Types
 
-- one-time-partials
-- full-surrenders
+- ONE_TIME_PARTIALS
+- FULL_SURRENDERS
 - SUBMIT_SYSTEMATIC_PROGRAM
 - UPDATE_SYSTEMATIC_PROGRAM
 - CANCEL_SYSTEMATIC_PROGRAM
@@ -340,16 +337,16 @@ Confirmation for one-time partial withdrawals, RMD withdrawals, and full surrend
 
 #### Supported transactionType Values
 
-- one-time-partials
-- full-surrenders
+- ONE_TIME_PARTIALS
+- FULL_SURRENDERS
 
 #### Supported transactionSubType Values
 
-- specified-withdrawal
-- surrender-free
-- rider-free
-- interest-only
-- rmd
+- SPECIFIED_WITHDRAWAL
+- SURRENDER_FREE
+- RIDER_FREE
+- INTEREST_ONLY
+- RMD
 
 ---
 
@@ -479,7 +476,7 @@ Transaction completed successfully but additional informational details are avai
 
 Transaction processing failed.
 
-Additional details may be provided in the message attribute.
+When the transaction fails, a human-readable explanation is provided in the message attribute.
 
 
 ---
@@ -529,7 +526,12 @@ The specification conforms to AsyncAPI 3.0.0.
 
 ## Versioning
 
-- Follow semantic versioning for specification updates.
-- Maintain backward compatibility whenever possible.
-- Document changes through changelogs and release notes.
+## v2.0.0 Highlights
 
+- **Transaction Type and Transaction Sub Type Standardization:** Updated transaction type and transaction subtype values to standardized UPPER_SNAKE_CASE naming conventions.
+- **Day-2 Event Enhancements:** Added transaction-type-specific Day-2 confirmation payload definitions for Allocation Instructions, Auto Rebalance, Dollar Cost Average, Index Performance Lock, and Systematic Investment transactions.
+- **Documentation Enhancements:** Expanded and standardized descriptions across Day-2 confirmation envelope properties, arrangement identifiers, transaction classifications, producer information, policy identifiers, and event metadata.
+- **Associated Firm Identifier Updates:** Clarified associatedFirmId usage and added minimum length validation.
+- **Sample Payload Updates:** Refreshed confirmation event examples.
+
+---
